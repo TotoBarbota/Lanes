@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "Run many tasks side by side on one shared Docker Compose stack: each task starts only the services it changed, and requests are routed to them by header.",
+  "license": "MIT",
+  "author": "Thomas Karagiannis",
   "type": "module",
   "repository": { "type": "git", "url": "git+https://github.com/TotoBarbota/Lanes.git" },
   "homepage": "https://github.com/TotoBarbota/Lanes#readme",

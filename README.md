@@ -157,4 +157,4 @@ machine with Docker Compose, and adds worktrees, change detection and agent guid
 
 ## License
 
-Not yet chosen. Until a licence is added, all rights are reserved.
+[MIT](LICENSE)

@@ -35,7 +35,7 @@ few minutes.
 | `src/ui/` | Frontend dev servers and dependency installs. |
 | `src/platform/` | Everything that differs between operating systems. |
 | `src/init/` | `lanes init` config drafting. |
-| `dashboard/` | Read-only web dashboard. |
+| `dashboard/` | Web dashboard: status, logs, start and close lanes. |
 | `templates/agents/` | Agent instruction templates. |
 | `examples/demo/` | The project `lanes demo` creates. |
 | `test/` | `node:test` suites and fixtures. |
@@ -58,3 +58,5 @@ few minutes.
 - Add or update tests for behaviour changes (`npm test` must pass).
 - Update `docs/` and the CLI help when you change options or behaviour.
 - Keep commits focused; describe the user-visible effect in the message.
+
+By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
