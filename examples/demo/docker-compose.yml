@@ -1,0 +1,36 @@
+# A plain Compose stack: it runs fine without lanes (docker compose up). The browser calls
+# gateway, gateway calls orders, orders calls catalog.
+x-health: &health
+  interval: 3s
+  timeout: 2s
+  retries: 20
+
+services:
+  gateway:
+    build: ./gateway
+    environment:
+      PORT: "3380"
+      DOWNSTREAM: http://orders:3381/
+    ports: ["3380:3380"]
+    healthcheck:
+      <<: *health
+      test: ["CMD", "wget", "-qO-", "http://localhost:3380/health"]
+
+  orders:
+    build: ./orders
+    environment:
+      PORT: "3381"
+      DOWNSTREAM: http://catalog:3382/
+    ports: ["3381:3381"]
+    healthcheck:
+      <<: *health
+      test: ["CMD", "wget", "-qO-", "http://localhost:3381/health"]
+
+  catalog:
+    build: ./catalog
+    environment:
+      PORT: "3382"
+    ports: ["3382:3382"]
+    healthcheck:
+      <<: *health
+      test: ["CMD", "wget", "-qO-", "http://localhost:3382/health"]

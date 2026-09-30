@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lanes</title>
+<style>
+  :root {
+    --paper: #e9eef2;
+    --panel: #f7f9fb;
+    --ink: #14202c;
+    --muted: #5e6d7c;
+    --hair: #c5d0da;
+    --ok: #1e9b57;
+    --warn: #d69a00;
+    --bad: #c92a2a;
+    --off: #a3afba;
+    --lane-1: #0b63ce;
+    --lane-2: #e8590c;
+    --lane-3: #7048e8;
+    --lane-4: #1098ad;
+    --lane-5: #d6336c;
+    --display: "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+    --body: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+    --cols: 190px repeat(9, minmax(62px, 1fr)) 28px repeat(2, minmax(76px, 1fr));
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.45 var(--body); }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--lane-1); outline-offset: 2px; }
+  .display { font-family: var(--display); font-stretch: 75%; letter-spacing: .02em; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--muted); }
+
+  header.top { display: flex; align-items: center; gap: 28px; padding: 16px 32px; border-bottom: 1px solid var(--hair); background: var(--panel); flex-wrap: wrap; }
+  .mark { font: 700 26px/1 var(--display); font-stretch: 75%; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+  .mark i { display: inline-block; width: 26px; height: 6px; background: var(--ink); border-radius: 3px; position: relative; }
+  .mark i::after { content: ""; position: absolute; right: -4px; top: -5px; width: 16px; height: 16px; border-radius: 50%; border: 4px solid var(--lane-2); background: var(--panel); box-sizing: border-box; }
+  .facts { display: flex; gap: 22px; flex-wrap: wrap; flex: 1; }
+  .fact small { display: block; font: 600 11px/1.2 var(--display); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .fact b { font-weight: 600; }
+  .meters { display: flex; gap: 20px; }
+  .meter { width: 190px; }
+  .meter small { display: flex; justify-content: space-between; font: 600 11px/1.2 var(--display); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .meter .bar { height: 6px; border-radius: 3px; background: var(--hair); margin-top: 6px; overflow: hidden; }
+  .meter .bar span { display: block; height: 100%; background: var(--ink); }
+  .meter.hot .bar span { background: var(--bad); }
+  .meter .val { font-family: var(--mono); font-size: 12px; margin-top: 4px; }
+
+  main { padding: 20px 32px 120px; max-width: 1680px; margin: 0 auto; }
+  .alerts:empty { display: none; }
+  .alert { border-left: 4px solid var(--bad); background: #fff; padding: 10px 14px; margin-bottom: 10px; }
+  .alert.warn { border-color: var(--warn); }
+  h2 { font: 700 15px/1 var(--display); font-stretch: 75%; letter-spacing: .14em; text-transform: uppercase; margin: 30px 0 12px; display: flex; align-items: baseline; gap: 12px; }
+  h2 .muted { font: 400 13px var(--body); letter-spacing: 0; text-transform: none; }
+
+  /* routing map */
+  .map { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 8px 18px 14px; overflow-x: auto; }
+  .row { display: grid; grid-template-columns: var(--cols); align-items: center; min-width: var(--min-w, 1060px); position: relative; }
+  .row.head { height: 58px; border-bottom: 1px solid var(--hair); margin-bottom: 4px; }
+  .row.track { height: 58px; }
+  .col-h { text-align: center; }
+  .col-h b { display: block; font: 600 13px/1.1 var(--display); font-stretch: 75%; text-transform: uppercase; letter-spacing: .04em; }
+  .col-h span { font: 11px var(--mono); color: var(--muted); }
+  .label { display: flex; align-items: center; gap: 10px; min-width: 0; grid-column: 1; grid-row: 1; }
+  .badge { flex: none; width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; font: 700 14px/1 var(--display); background: var(--c, var(--ink)); }
+  .label .name { font: 600 16px/1.1 var(--display); font-stretch: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .label .sub { font: 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .line { grid-row: 1; height: 4px; border-radius: 2px; background: var(--c); z-index: 0; }
+  .line.svc { grid-column: 2 / 11; }
+  .line.ui { grid-column: 12 / 14; }
+  .track.base .line { height: 7px; border-radius: 4px; }
+  .stn { grid-row: 1; justify-self: center; z-index: 1; width: 22px; height: 22px; border-radius: 50%; border: 4px solid var(--c); background: var(--h); position: relative; cursor: default; }
+  .stn.hollow { background: var(--panel); }
+  .stn .tag { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); font: 10px var(--mono); color: var(--muted); white-space: nowrap; }
+  .h-ok { --h: var(--ok); } .h-warn { --h: var(--warn); } .h-bad { --h: var(--bad); } .h-off { --h: var(--off); }
+  .stn.h-warn { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 25%, transparent); } }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; align-items: center; }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--h); margin-right: 6px; vertical-align: -1px; }
+
+  /* lane cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--hair); border-left: 6px solid var(--c); border-radius: 6px; padding: 14px 16px; }
+  .card .hd { display: flex; align-items: center; gap: 10px; }
+  .card .hd .name { font: 700 20px/1 var(--display); font-stretch: 75%; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .pill { font: 600 11px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; padding: 4px 7px; border-radius: 3px; background: var(--paper); color: var(--muted); }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 14%, #fff); color: #13693a; }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 18%, #fff); color: #7a5800; }
+  .pill.bad { background: color-mix(in srgb, var(--bad) 14%, #fff); color: var(--bad); }
+  .card .meta { margin: 8px 0 10px; font: 12px var(--mono); color: var(--muted); word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 6px 6px; border-top: 1px solid var(--paper); text-align: left; vertical-align: middle; }
+  th { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border-top: 0; }
+  td.num { text-align: right; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .sdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--h); margin-right: 8px; }
+  .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .links a { font-size: 12px; text-decoration: none; border: 1px solid var(--hair); border-radius: 4px; padding: 5px 9px; background: var(--panel); }
+  .links a:hover { border-color: var(--c, var(--ink)); }
+  button.logs { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--hair); background: var(--panel); border-radius: 3px; padding: 3px 7px; cursor: pointer; color: var(--ink); }
+  button.logs:hover { border-color: var(--ink); }
+  .empty { background: var(--panel); border: 1px dashed var(--hair); border-radius: 6px; padding: 18px; color: var(--muted); }
+  .empty code, .alert code { font-family: var(--mono); font-size: 12px; background: var(--paper); padding: 1px 5px; border-radius: 3px; color: var(--ink); }
+
+  /* baseline + worktrees */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .box { background: #fff; border: 1px solid var(--hair); border-radius: 6px; padding: 10px 14px; }
+  .box h3 { font: 600 12px var(--display); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 4px 0 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--display); }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  @media (max-width: 1000px) { .split { grid-template-columns: 1fr; } header.top, main { padding-left: 16px; padding-right: 16px; } }
+
+  /* log drawer */
+  .drawer { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; background: var(--ink); color: #dfe6ec; display: none; flex-direction: column; box-shadow: 0 -8px 24px rgba(20, 32, 44, .25); z-index: 10; }
+  .drawer.open { display: flex; }
+  .drawer .bar { display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-bottom: 1px solid #2a3a4a; font-size: 12px; }
+  .drawer .bar b { font: 12px var(--mono); flex: 1; }
+  .drawer select, .drawer button { font: 12px var(--body); background: #22313f; color: #dfe6ec; border: 1px solid #3a4b5c; border-radius: 3px; padding: 3px 8px; cursor: pointer; }
+  .drawer .lstat { display: inline-flex; align-items: center; gap: 6px; font: 11px var(--mono); color: #9fb0bf; }
+  .drawer .lstat i { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
+  .drawer .lstat.live i { background: var(--ok); }
+  .drawer .lstat.paused i { background: var(--warn); }
+  .drawer .lstat.ended i { background: var(--bad); }
+  .drawer pre { margin: 0; padding: 10px 18px; overflow: auto; flex: 1; font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; }
+  .drawer.job-mode .container-only { display: none; }
+
+  /* lane actions */
+  .acts { display: inline-flex; gap: 6px; align-items: center; }
+  button.act { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .06em; border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 3px; padding: 4px 9px; cursor: pointer; }
+  button.act.quiet { background: var(--panel); color: var(--ink); border-color: var(--hair); }
+  button.act.quiet:hover { border-color: var(--ink); }
+  button.act.danger { background: #fff; color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, #fff); }
+  button.act.danger:hover { background: color-mix(in srgb, var(--bad) 8%, #fff); }
+  button.act:disabled { opacity: .45; cursor: default; }
+  .job { font: 11px var(--mono); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+  .job.run i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); animation: pulse 1.6s ease-in-out infinite; }
+  .job.fail { color: var(--bad); }
+  .job a { cursor: pointer; text-decoration: underline; }
+  dialog { border: 1px solid var(--hair); border-radius: 8px; padding: 0; width: min(560px, 94vw); color: var(--ink); box-shadow: 0 18px 50px rgba(20, 32, 44, .3); }
+  dialog::backdrop { background: rgba(20, 32, 44, .35); }
+  dialog form { padding: 18px 20px; }
+  dialog h3 { font: 700 18px/1.1 var(--display); font-stretch: 75%; margin: 0 0 4px; }
+  dialog .sub { font: 12px var(--mono); color: var(--muted); margin-bottom: 14px; word-break: break-all; }
+  dialog fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+  dialog legend { font: 600 11px var(--display); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 6px; }
+  dialog .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  dialog label { font-size: 13px; }
+  dialog input[type=text] { font: 13px var(--mono); padding: 5px 8px; border: 1px solid var(--hair); border-radius: 4px; width: 100%; }
+  dialog .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  dialog .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  dialog .err { color: var(--bad); font-size: 13px; min-height: 1em; }
+  @media (prefers-reduced-motion: reduce) { .stn.h-warn { animation: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="mark"><i></i>lanes <span class="muted" id="project-name"></span></div>
+  <div class="facts" id="facts"></div>
+  <div class="meters" id="meters"></div>
+</header>
+<main>
+  <div class="alerts" id="alerts"></div>
+  <h2>Routing <span class="muted">Where each lane's requests go. A station is the lane's own instance; elsewhere the line falls back to the baseline.</span></h2>
+  <div class="map" id="map"></div>
+  <h2>Lanes <span class="muted" id="lane-count"></span></h2>
+  <div id="lanes"></div>
+  <div class="split">
+    <div>
+      <h2>Baseline <span class="muted" id="base-sub"></span></h2>
+      <div class="box" id="baseline"></div>
+    </div>
+    <div>
+      <h2>Worktrees</h2>
+      <div class="box" id="worktrees"></div>
+    </div>
+  </div>
+</main>
+<div class="drawer" id="drawer" role="dialog" aria-label="Container logs">
+  <div class="bar">
+    <b id="log-title"></b>
+    <span class="lstat" id="log-status" aria-live="polite"><i></i><span></span></span>
+    <label class="container-only">Lines <select id="log-tail"><option>200</option><option selected>500</option><option>2000</option><option>5000</option></select></label>
+    <label title="Scrolling up pauses; tick to jump back to the newest lines"><input type="checkbox" id="log-follow" checked> Follow</label>
+    <button id="log-refresh" class="container-only">Reload</button>
+    <button id="log-close">Close</button>
+  </div>
+  <pre id="log-body"></pre>
+</div>
+<dialog id="start-dialog" aria-labelledby="start-title">
+  <form method="dialog" id="start-form">
+    <h3 id="start-title">Start a lane</h3>
+    <div class="sub" id="start-sub"></div>
+    <fieldset>
+      <legend>Services</legend>
+      <div class="hint" style="margin:0 0 6px">Services this worktree changed start on their own. Tick others to run them in the lane too.</div>
+      <div class="opts" id="start-services"></div>
+    </fieldset>
+    <fieldset id="start-ui-set">
+      <legend>UIs</legend>
+      <div class="opts" id="start-uis"></div>
+      <div class="hint">UIs this worktree changed start on their own unless you choose "No UIs".</div>
+    </fieldset>
+    <fieldset>
+      <legend>Options</legend>
+      <div class="opts">
+        <label title="Background jobs, schedulers and consumers stay on in the lane copies"><input type="checkbox" id="start-jobs"> Jobs on</label>
+        <label title="Build every image again, even if nothing changed"><input type="checkbox" id="start-rebuild"> Rebuild all</label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Lane name</legend>
+      <input type="text" id="start-name" placeholder="from the branch name" pattern="[a-z0-9][a-z0-9\-]{0,39}" autocomplete="off">
+    </fieldset>
+    <div class="err" id="start-err" role="alert"></div>
+    <div class="btns">
+      <button type="button" class="act quiet" id="start-preview" title="Show what would start (lanes detect)">Preview</button>
+      <button type="button" class="act quiet" id="start-cancel">Cancel</button>
+      <button type="submit" class="act" id="start-go">Start lane</button>
+    </div>
+  </form>
+</dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const laneColor = (n) => `var(--lane-${((n - 1) % 5) + 1})`;
+// Service names shortened by the prefix they all share (e.g. "shop-"), for the narrow map columns.
+let svcPrefix = '';
+function sharedPrefix(names) {
+  if (names.length < 2) return '';
+  const first = names[0].split('-');
+  let n = 0;
+  while (n < first.length - 1 && names.every((s) => s.split('-')[n] === first[n] && s.split('-').length > n + 1)) n++;
+  return n ? `${first.slice(0, n).join('-')}-` : '';
+}
+const short = (svc) => (svcPrefix && svc.startsWith(svcPrefix) ? svc.slice(svcPrefix.length) : svc);
+const mem = (b) => (b == null ? '' : b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`);
+const ago = (iso) => {
+  if (!iso) return '';
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  return s < 60 ? `${Math.round(s)}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
+};
+
+function health(c) {
+  if (!c) return 'off';
+  const st = c.state;
+  if (st === 'running') return c.health === 'unhealthy' ? 'bad' : c.health === 'starting' ? 'warn' : 'ok';
+  if (st === 'restarting' || st === 'created') return 'warn';
+  if (st === 'exited' && /Exited \((?!0\))/.test(c.status || '')) return 'bad';
+  return 'off';
+}
+const healthText = (c) => (!c ? 'missing' : c.state === 'running' ? (c.health || 'running') : c.state);
+const uiHealth = (u) => (!u ? 'off' : u.listening ? 'ok' : u.alive ? 'warn' : 'bad');
+const uiText = (u) => (!u ? 'off' : u.listening ? 'listening' : u.alive ? 'building' : 'stopped');
+
+let state = null;
+let online = true;
+
+// ---- lane actions: each runs the lanes CLI on the server as a job whose output opens in the drawer
+const TOKEN = document.querySelector('meta[name="lanes-token"]')?.content || '';
+const samePath = (a, b) => String(a || '').replace(/\\/g, '/').toLowerCase() === String(b || '').replace(/\\/g, '/').toLowerCase();
+const ACTION_WORD = { up: 'lanes up', down: 'lanes down', detect: 'lanes detect' };
+
+function latestJob(match) {
+  return (state?.jobs || []).filter(match).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] || null;
+}
+const jobForWorktree = (wt) => latestJob((j) => samePath(j.worktree, wt) && j.action !== 'detect');
+const jobForLane = (l) => latestJob((j) => (j.lane === l.name || samePath(j.worktree, l.worktree)) && j.action !== 'detect');
+
+function jobBadge(j) {
+  if (!j) return '';
+  const label = j.action === 'down' ? 'closing' : 'starting';
+  if (j.running) return `<span class="job run"><i></i>${label}… <a data-job="${esc(j.id)}">output</a></span>`;
+  if (j.code !== 0) return `<span class="job fail">${esc(ACTION_WORD[j.action])} failed · <a data-job="${esc(j.id)}">output</a></span>`;
+  return Date.now() - new Date(j.endedAt) < 120000 ? `<span class="job">done · <a data-job="${esc(j.id)}">output</a></span>` : '';
+}
+
+async function runJob(body) {
+  const r = await fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lanes-Token': TOKEN }, body: JSON.stringify(body) });
+  const res = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  if (!r.ok) throw new Error(res.error || `HTTP ${r.status}`);
+  state.jobs = [...(state.jobs || []), res];
+  render();
+  openJob(res);
+  return res;
+}
+
+function updateLane(l) {
+  const uis = Object.keys(l.ui || {});
+  runJob({ action: 'up', worktree: l.worktree, include: l.services.map((s) => s.service), ui: uis.length ? uis : 'auto', jobs: !!l.jobs })
+    .catch((e) => alert(e.message));
+}
+
+function closeLane(l) {
+  if (!confirm(`Close lane "${l.name}"?\n\nIts containers and images are removed and its UI dev servers stopped. The worktree and its changes stay.`)) return;
+  runJob({ action: 'down', lane: l.name }).catch((e) => alert(e.message));
+}
+
+function renderTop() {
+  const b = state.baseline;
+  const r = state.router;
+  const head = b.head ? ` @ ${b.head.slice(0, 9)}` : '';
+  $('facts').innerHTML = `
+    <div class="fact"><small>Baseline</small><b>${esc(b.mode)}</b> mode <span class="mono muted">${esc((b.ref || state.project.refs.baseline).replace('origin/', ''))}${esc(head)}</span></div>
+    <div class="fact"><small>Router</small><b>${r ? esc(r.health || r.state) : 'absent'}</b></div>
+    <div class="fact"><small>Lanes</small><b>${state.lanes.length}</b> of ${state.project.maxLanes}</div>
+    <div class="fact"><small>Updated</small><span class="mono">${online ? esc(ago(state.generatedAt)) : 'offline'}</span></div>`;
+  const m = state.memory;
+  if (!m) return;
+  const hostUsedPct = ((m.hostTotalGb - m.hostFreeGb) / m.hostTotalGb) * 100;
+  $('meters').innerHTML = `
+    <div class="meter ${m.hostFreeGb < 4 ? 'hot' : ''}"><small><span>Host memory</span><span>${Math.round(hostUsedPct)}%</span></small>
+      <div class="bar"><span style="width:${hostUsedPct}%"></span></div><div class="val">${m.hostFreeGb} GB free of ${m.hostTotalGb}</div></div>
+    <div class="meter ${(m.dockerPercent || 0) > 90 ? 'hot' : ''}"><small><span>Docker</span><span>${m.dockerPercent ?? '?'}%</span></small>
+      <div class="bar"><span style="width:${m.dockerPercent || 0}%"></span></div><div class="val">${m.dockerUsedGb} of ${m.dockerTotalGb} GB</div></div>`;
+}
+
+function renderAlerts() {
+  const out = [];
+  if (!online) out.push(`<div class="alert">The dashboard server is not responding. Start it with <code>lanes dashboard</code>.</div>`);
+  if (state.error) out.push(`<div class="alert">Could not read Docker state: ${esc(state.error)}</div>`);
+  if (state.baseline.mode !== 'lanes') {
+    out.push(`<div class="alert warn">The baseline is not running in lanes mode, so no request can reach a lane. Start it with <code>lanes baseline up</code>.</div>`);
+  }
+  if (state.orphans.length) {
+    out.push(`<div class="alert warn">Lane containers with no registered lane: ${state.orphans.map((c) => `<code>${esc(c.name)}</code>`).join(' ')}. Remove them with <code>docker rm -f</code>.</div>`);
+  }
+  for (const l of state.lanes) {
+    const bad = l.services.filter((s) => health(s) === 'bad' || s.state === 'missing');
+    if (bad.length) out.push(`<div class="alert">Lane <b>${esc(l.name)}</b>: ${bad.map((s) => `${esc(short(s.service))} is ${esc(healthText(s))}`).join(', ')}. Its requests to ${bad.length > 1 ? 'these services fail' : 'this service fail'} instead of falling back.</div>`);
+  }
+  $('alerts').innerHTML = out.join('');
+}
+
+function baseContainer(svc) {
+  return state.baseline.containers.find((c) => c.service === svc) || null;
+}
+
+function renderMap() {
+  const svcs = [...state.project.services].sort((a, b) => a.port - b.port);
+  const uis = state.project.uis;
+  const col = (i) => i + 2;
+  const uiCol = (i) => svcs.length + 3 + i;
+  const map = $('map');
+  map.style.setProperty('--cols', `190px repeat(${svcs.length}, minmax(62px, 1fr))${uis.length ? ` 28px repeat(${uis.length}, minmax(76px, 1fr))` : ''}`);
+  map.style.setProperty('--min-w', `${190 + svcs.length * 72 + (uis.length ? 28 + uis.length * 86 : 0)}px`);
+  const svcLine = `<div class="line svc" style="grid-column:2 / ${svcs.length + 2}"></div>`;
+  const uiLine = uis.length ? `<div class="line ui" style="grid-column:${uiCol(0)} / ${uiCol(uis.length)}"></div>` : '';
+  let html = `<div class="row head"><div></div>${svcs.map((s) => `<div class="col-h"><b>${esc(short(s.name))}</b><span>:${s.port}</span></div>`).join('')}
+    ${uis.length ? `<div></div>${uis.map((u) => `<div class="col-h"><b>${esc(u.label)}</b><span>ui</span></div>`).join('')}` : ''}</div>`;
+
+  const b = state.baseline;
+  html += `<div class="row track base" style="--c:var(--ink)">
+    <div class="label"><span class="badge">B</span><div><div class="name">baseline</div><div class="sub">${esc((b.ref || state.project.refs.baseline).replace('origin/', ''))}</div></div></div>
+    ${svcLine}${uiLine}
+    ${svcs.map((s, i) => {
+      const c = baseContainer(s.name);
+      return `<span class="stn h-${health(c)}" style="grid-column:${col(i)}" title="${esc(c ? `${c.name} · ${c.status} · ${mem(c.memBytes)}` : `${s.name}: no baseline container`)}"></span>`;
+    }).join('')}
+    ${uis.map((u, i) => {
+      const up = state.baselinePorts?.[u.key];
+      return `<span class="stn ${up ? 'h-ok' : 'hollow h-off'}" style="grid-column:${uiCol(i)}" title="${esc(u.label)} UI on :${u.port} ${up ? 'listening' : 'not running'}"><span class="tag">:${u.port}</span></span>`;
+    }).join('')}
+  </div>`;
+
+  for (const l of state.lanes) {
+    const own = new Map(l.services.map((s) => [s.service, s]));
+    const laneUis = uis.filter((u) => l.ui[u.key]);
+    html += `<div class="row track" style="--c:${laneColor(l.number)}">
+      <div class="label"><span class="badge">${l.number}</span><div style="min-width:0"><div class="name">${esc(l.name)}</div><div class="sub">${esc(l.branch || 'detached')}</div></div></div>
+      ${svcLine}${laneUis.length ? uiLine : ''}
+      ${svcs.map((s, i) => {
+        const x = own.get(s.name);
+        return x ? `<span class="stn h-${health(x)}" style="grid-column:${col(i)}" title="${esc(`${x.container} · ${healthText(x)} · ${mem(x.memBytes)}${x.debugPort ? ` · debug :${x.debugPort}` : ''}`)}"></span>` : '';
+      }).join('')}
+      ${uis.map((u, i) => {
+        const x = l.ui[u.key];
+        return x ? `<span class="stn h-${uiHealth(x)}" style="grid-column:${uiCol(i)}" title="${esc(u.label)} UI :${x.port} ${uiText(x)}"><span class="tag">:${x.port}</span></span>` : '';
+      }).join('')}
+    </div>`;
+  }
+  html += `<div class="legend">
+    <span><span class="dot h-ok"></span>healthy</span><span><span class="dot h-warn"></span>starting</span>
+    <span><span class="dot h-bad"></span>failing</span><span><span class="dot h-off"></span>stopped</span>
+    <span>Lane services outside a UI's line are reached through the router, so any UI can use a lane via its cookie.</span></div>`;
+  $('map').innerHTML = html;
+}
+
+function laneCard(l) {
+  const status = l.services.some((s) => health(s) === 'bad' || s.state === 'missing') ? 'bad'
+    : l.services.some((s) => health(s) === 'warn') || l.status !== 'running' ? 'warn' : 'ok';
+  const rows = l.services.map((s) => `<tr>
+      <td><span class="sdot h-${health(s)}"></span>${esc(short(s.service))}</td>
+      <td class="muted">${esc(healthText(s))}</td>
+      <td class="num">${esc(mem(s.memBytes))}</td>
+      <td class="num">${s.debugPort ? `debug :${s.debugPort}` : ''}</td>
+      <td style="text-align:right"><button class="logs" data-container="${esc(s.container)}">Logs</button></td></tr>`);
+  const uiLabel = (k) => state.project.uis.find((u) => u.key === k)?.label || k;
+  for (const [k, u] of Object.entries(l.ui)) {
+    if (!u) continue;
+    rows.push(`<tr><td><span class="sdot h-${uiHealth(u)}"></span>${esc(uiLabel(k))} ui</td>
+      <td class="muted">${uiText(u)}</td><td class="num"></td><td class="num">pid ${u.pid}</td>
+      <td style="text-align:right"><a class="mono" href="http://localhost:${u.port}" target="_blank" rel="noopener">:${u.port}</a></td></tr>`);
+  }
+  const firstUi = state.project.uis[0];
+  const links = [
+    ...Object.entries(l.urls.ui).map(([k, url]) => `<a href="${esc(url)}" target="_blank" rel="noopener">Open ${esc(uiLabel(k))}</a>`),
+    l.urls.cookieOn && `<a href="${esc(l.urls.cookieOn)}" target="_blank" rel="noopener">Use lane in ${firstUi ? `:${firstUi.port} UI` : 'this browser'}</a>`,
+    l.urls.cookieOff && `<a href="${esc(l.urls.cookieOff)}" target="_blank" rel="noopener">Clear lane cookie</a>`,
+    ...Object.entries(l.urls.entry).map(([svc, url]) => `<a href="${esc(url)}/" target="_blank" rel="noopener">${esc(short(svc))} entry ${esc(url.replace('http://localhost', ''))}</a>`),
+  ].filter(Boolean).join('');
+  const job = jobForLane(l);
+  const busy = job?.running;
+  return `<article class="card" style="--c:${laneColor(l.number)}">
+    <div class="hd"><span class="badge">${l.number}</span><span class="name">${esc(l.name)}</span>
+      ${l.jobs ? '<span class="pill">jobs on</span>' : ''}<span class="pill ${status}">${status === 'ok' ? 'running' : status === 'warn' ? esc(l.status === 'running' ? 'starting' : l.status) : 'problem'}</span></div>
+    <div class="meta">${esc(l.branch || 'detached')} @ ${esc((l.head || '').slice(0, 9))} · updated ${esc(ago(l.updatedAt))}<br>${esc(l.worktree)}</div>
+    <div class="acts" style="margin-bottom:8px">
+      <button class="act quiet" data-update="${esc(l.name)}" ${busy ? 'disabled' : ''} title="Run lanes up again: rebuilds what changed, keeps the same services and UIs">Update</button>
+      <button class="act danger" data-close="${esc(l.name)}" ${busy ? 'disabled' : ''} title="Run lanes down">Close lane</button>
+      ${jobBadge(job)}
+    </div>
+    ${rows.length ? `<table><thead><tr><th>Instance</th><th>State</th><th style="text-align:right">Memory</th><th style="text-align:right">Port</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '<div class="muted">No services or UIs in this lane.</div>'}
+    <div class="links">${links}</div>
+  </article>`;
+}
+
+function renderLanes() {
+  $('lane-count').textContent = `${state.lanes.length} of ${state.project.maxLanes} in use`;
+  $('lanes').innerHTML = state.lanes.length
+    ? `<div class="cards">${state.lanes.map(laneCard).join('')}</div>`
+    : `<div class="empty">No lanes are running. Use <b>Start lane</b> next to a worktree below, or run <code>lanes up</code> in it, to start the services it changed.</div>`;
+}
+
+function renderBaseline() {
+  const cs = state.baseline.containers;
+  const java = new Set(state.project.allServices);
+  const running = cs.filter((c) => c.state === 'running');
+  $('base-sub').textContent = `${running.length} of ${cs.length} containers running · ${mem(running.reduce((a, c) => a + (c.memBytes || 0), 0))}`;
+  const rows = (list) => list.map((c) => `<tr>
+      <td><span class="sdot h-${health(c)}"></span>${esc(c.service || c.name)}</td>
+      <td class="muted">${esc(healthText(c))}</td><td class="num">${esc(mem(c.memBytes))}</td>
+      <td style="text-align:right"><button class="logs" data-container="${esc(c.name)}">Logs</button></td></tr>`).join('');
+  const group = (title) => `<tr><th colspan="4"><h3>${title}</h3></th></tr>`;
+  const svc = cs.filter((c) => java.has(c.service));
+  const infra = cs.filter((c) => !java.has(c.service));
+  const r = state.router;
+  $('baseline').innerHTML = cs.length
+    ? `<table><tbody>${group('Services')}${rows(svc)}${group('Router')}${r ? rows([{ ...r, service: 'lane-router' }]) : '<tr><td colspan="4" class="muted">Not running.</td></tr>'}${group('Infrastructure')}${rows(infra)}</tbody></table>`
+    : '<div class="muted">No baseline containers exist yet.</div>';
+}
+
+function renderWorktrees() {
+  const wts = state.worktrees || [];
+  const lanes = new Map(state.lanes.map((l) => [l.name, l]));
+  const full = state.lanes.length >= state.project.maxLanes;
+  $('worktrees').innerHTML = `<table><thead><tr><th>Worktree</th><th>Branch</th><th>Lane</th></tr></thead><tbody>${wts.map((w) => {
+    const l = w.lane && lanes.get(w.lane);
+    const tag = w.isMain ? ' <span class="pill">main</span>' : w.isBaseline ? ' <span class="pill">baseline</span>' : '';
+    const job = jobForWorktree(w.path);
+    let lane = '<span class="muted">none</span>';
+    if (l) lane = `<span class="chip" style="--c:${laneColor(l.number)}"><i></i>${esc(l.name)}</span>`;
+    else if (!w.isBaseline) {
+      lane = `<span class="acts"><button class="act quiet" data-start="${esc(w.path)}" ${job?.running || full ? 'disabled' : ''}
+        title="${full ? 'All lanes are in use; close one first' : 'Start a lane for this worktree'}">Start lane</button>${jobBadge(job)}</span>`;
+    }
+    return `<tr><td class="mono">${esc(w.path)}${tag}</td><td class="mono">${esc(w.branch || (w.detached ? 'detached' : ''))} <span class="muted">${esc(w.head || '')}</span></td>
+      <td>${lane}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+function render() {
+  if (!state || !state.baseline) {
+    const why = !online ? 'The dashboard server is not responding. Start it with <code>lanes dashboard</code>.'
+      : state?.error ? `Could not read Docker state: ${esc(state.error)}` : 'Reading Docker state...';
+    $('alerts').innerHTML = `<div class="alert warn">${why}</div>`;
+    return;
+  }
+  svcPrefix = sharedPrefix(state.project.services.map((s) => s.name));
+  document.title = `lanes · ${state.project.name}`;
+  $('project-name').textContent = state.project.name;
+  renderTop();
+  renderAlerts();
+  renderMap();
+  renderLanes();
+  renderBaseline();
+  renderWorktrees();
+}
+
+async function poll() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    state = await r.json();
+    online = true;
+  } catch {
+    online = false;
+  }
+  render();
+}
+
+// Logs stream over server-sent events: the tail first, then each new line as the container writes it.
+const LOG_RENDER_MS = 150;
+const LOG_RETRY_MS = 3000;
+const JOB_MAX_LINES = 20000;
+const log = { kind: 'container', container: null, jobId: null, exitCode: null, source: null, conn: 'idle', lines: [], unseen: 0, renderTimer: null, retryTimer: null };
+const followOn = () => $('log-follow').checked;
+const logMaxLines = () => (log.kind === 'job' ? JOB_MAX_LINES : Number($('log-tail').value));
+
+function setLogStatus(kind, text) {
+  const el = $('log-status');
+  el.className = `lstat ${kind}`;
+  el.lastElementChild.textContent = text;
+}
+function refreshLogStatus() {
+  if (log.conn === 'live' && !followOn()) {
+    return setLogStatus('paused', log.unseen ? `paused, ${log.unseen} new line${log.unseen === 1 ? '' : 's'}` : 'paused');
+  }
+  const text = {
+    connecting: 'connecting',
+    live: 'live',
+    reconnecting: 'reconnecting',
+    ended: 'container stopped, resumes when it runs again',
+    failed: 'could not connect',
+    finished: log.exitCode === 0 ? 'finished' : `failed (exit ${log.exitCode})`,
+  }[log.conn] || '';
+  const kind = log.conn === 'finished' ? (log.exitCode === 0 ? '' : 'ended') : ({ live: 'live', ended: 'ended', failed: 'ended' }[log.conn] || '');
+  setLogStatus(kind, log.kind === 'job' && log.conn === 'live' ? 'running' : text);
+}
+function renderLogLines() {
+  clearTimeout(log.renderTimer);
+  log.renderTimer = null;
+  log.unseen = 0;
+  const pre = $('log-body');
+  pre.textContent = log.lines.length ? log.lines.join('\n') : '(no output yet)';
+  pre.scrollTop = pre.scrollHeight;
+  refreshLogStatus();
+}
+function scheduleLogRender() {
+  if (!followOn()) return refreshLogStatus();
+  log.renderTimer ||= setTimeout(renderLogLines, LOG_RENDER_MS);
+}
+function appendLogChunk(chunk) {
+  const incoming = chunk.split('\n');
+  for (const l of incoming) log.lines.push(l);
+  const extra = log.lines.length - logMaxLines();
+  if (extra > 0) log.lines.splice(0, extra);
+  log.unseen += incoming.length;
+  scheduleLogRender();
+}
+function containerRunning(name) {
+  if (!state) return false;
+  const plain = [...(state.baseline?.containers || []), ...(state.orphans || []), state.router].filter(Boolean);
+  if (plain.some((c) => c.name === name && c.state === 'running')) return true;
+  return (state.lanes || []).some((l) => l.services.some((s) => s.container === name && s.state === 'running'));
+}
+function waitForContainer(name) {
+  clearTimeout(log.retryTimer);
+  log.retryTimer = setTimeout(() => {
+    if (log.container !== name) return;
+    if (containerRunning(name)) openLogStream();
+    else waitForContainer(name);
+  }, LOG_RETRY_MS);
+}
+function closeLogStream() {
+  clearTimeout(log.retryTimer);
+  clearTimeout(log.renderTimer);
+  log.renderTimer = null;
+  if (log.source) log.source.close();
+  log.source = null;
+}
+function openLogStream() {
+  closeLogStream();
+  const name = log.kind === 'job' ? log.jobId : log.container;
+  if (!name) return;
+  log.conn = 'connecting';
+  refreshLogStatus();
+  const es = new EventSource(log.kind === 'job'
+    ? `/api/jobs/stream?id=${encodeURIComponent(name)}`
+    : `/api/logs/stream?container=${encodeURIComponent(name)}&tail=${logMaxLines()}`);
+  log.source = es;
+  es.addEventListener('reset', () => {
+    log.lines = [];
+    log.unseen = 0;
+    log.conn = 'live';
+    scheduleLogRender();
+    refreshLogStatus();
+  });
+  es.addEventListener('lines', (e) => appendLogChunk(JSON.parse(e.data)));
+  es.addEventListener('end', (e) => {
+    es.close();
+    log.source = null;
+    if (log.kind === 'job') {
+      log.exitCode = JSON.parse(e.data).code;
+      log.conn = 'finished';
+      renderLogLines();
+      poll();
+      return;
+    }
+    log.conn = 'ended';
+    refreshLogStatus();
+    waitForContainer(name);
+  });
+  es.onerror = () => {
+    if (log.source !== es) return;
+    log.conn = es.readyState === EventSource.CLOSED ? 'failed' : 'reconnecting';
+    refreshLogStatus();
+  };
+}
+function openLogs(name) {
+  log.kind = 'container';
+  log.container = name;
+  log.jobId = null;
+  log.lines = [];
+  $('log-title').textContent = name;
+  $('log-body').textContent = 'Loading...';
+  $('log-follow').checked = true;
+  $('drawer').classList.remove('job-mode');
+  $('drawer').classList.add('open');
+  openLogStream();
+}
+function openJob(job) {
+  log.kind = 'job';
+  log.jobId = job.id;
+  log.container = null;
+  log.exitCode = null;
+  log.lines = [];
+  $('log-title').textContent = job.command;
+  $('log-body').textContent = 'Starting...';
+  $('log-follow').checked = true;
+  $('drawer').classList.add('job-mode', 'open');
+  openLogStream();
+}
+function closeLogs() {
+  log.container = null;
+  log.jobId = null;
+  log.conn = 'idle';
+  closeLogStream();
+  $('drawer').classList.remove('open');
+}
+const laneByName = (n) => state?.lanes.find((l) => l.name === n);
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button.logs, [data-job], [data-update], [data-close], [data-start]');
+  if (!t) return;
+  if (t.matches('button.logs')) openLogs(t.dataset.container);
+  else if (t.dataset.job) {
+    const j = state?.jobs?.find((x) => x.id === t.dataset.job);
+    if (j) openJob(j);
+  } else if (t.dataset.update && laneByName(t.dataset.update)) updateLane(laneByName(t.dataset.update));
+  else if (t.dataset.close && laneByName(t.dataset.close)) closeLane(laneByName(t.dataset.close));
+  else if (t.dataset.start) openStartDialog(t.dataset.start);
+});
+
+// ---- start dialog
+let startFor = null;
+function openStartDialog(worktree) {
+  const w = state.worktrees.find((x) => samePath(x.path, worktree));
+  if (!w) return;
+  startFor = w.path;
+  $('start-title').textContent = `Start a lane for ${w.branch || 'this worktree'}`;
+  $('start-sub').textContent = w.path;
+  $('start-services').innerHTML = state.project.services.map((s) => `<label><input type="checkbox" name="svc" value="${esc(s.name)}"> ${esc(short(s.name))}</label>`).join('');
+  const uis = state.project.uis;
+  $('start-ui-set').hidden = !uis.length;
+  $('start-uis').innerHTML = `${uis.map((u) => `<label><input type="checkbox" name="ui" value="${esc(u.key)}"> ${esc(u.label)}</label>`).join('')}
+    <label><input type="checkbox" id="start-noui"> No UIs</label>`;
+  $('start-jobs').checked = false;
+  $('start-rebuild').checked = false;
+  $('start-name').value = '';
+  $('start-err').textContent = '';
+  $('start-dialog').showModal();
+}
+function startBody() {
+  const form = $('start-form');
+  const picked = (n) => [...form.querySelectorAll(`input[name=${n}]:checked`)].map((i) => i.value);
+  const body = { action: 'up', worktree: startFor, include: picked('svc'), jobs: $('start-jobs').checked, rebuild: $('start-rebuild').checked };
+  body.ui = $('start-noui').checked ? 'none' : picked('ui').length ? picked('ui') : 'auto';
+  const name = $('start-name').value.trim();
+  if (name) body.name = name;
+  return body;
+}
+async function submitStart(body) {
+  $('start-err').textContent = '';
+  try {
+    await runJob(body);
+    $('start-dialog').close();
+  } catch (err) {
+    $('start-err').textContent = err.message;
+  }
+}
+$('start-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!$('start-form').reportValidity()) return;
+  submitStart(startBody());
+});
+$('start-preview').addEventListener('click', () => submitStart({ action: 'detect', worktree: startFor }));
+$('start-cancel').addEventListener('click', () => $('start-dialog').close());
+$('log-body').addEventListener('scroll', () => {
+  const pre = $('log-body');
+  const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+  if (!atBottom && followOn()) {
+    $('log-follow').checked = false;
+    refreshLogStatus();
+  }
+});
+$('log-follow').addEventListener('change', () => (followOn() ? renderLogLines() : refreshLogStatus()));
+$('log-close').addEventListener('click', closeLogs);
+$('log-refresh').addEventListener('click', () => {
+  $('log-follow').checked = true;
+  openLogStream();
+});
+$('log-tail').addEventListener('change', openLogStream);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLogs(); });
+
+poll();
+setInterval(poll, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+name: shop
+repo: .
+refs:
+  baseline: origin/main
+  laneBase: origin/main
+compose:
+  files: [docker-compose.yml]
+  exclude: [web]
+services:
+  gateway:
+    port: 8080
+    entry: true
+    runtime: java
+    cors:
+      uis: [web]
+      env: CORS_ORIGINS
+      from: [CORS_ORIGINS]
+      default: http://localhost:3000
+  orders:
+    port: 8081
+    runtime: java
+    paths: [services/orders]
+    jobsOff:
+      spring:
+        orders.cleanup.enabled: false
+  catalog:
+    port: 8082
+    paths: [services/catalog]
+  worker:
+    route: false
+    runtime: java
+shared:
+  - path: libs/common
+    note: used by every Java service
+uis:
+  web:
+    label: Web
+    path: web
+    port: 3000
+    command: npm run dev -- --port {{port}}
+    laneEnv:
+      API_URL: "{{entry:gateway}}"
+worktree:
+  protect: ["*.local.properties"]

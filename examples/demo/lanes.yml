@@ -1,0 +1,43 @@
+# lanes configuration for the demo shop. See docs/config.md for every option.
+name: demo
+repo: .
+refs:
+  baseline: main          # what the shared stack runs
+  laneBase: main          # what task branches start from
+
+compose:
+  files: [docker-compose.yml]
+  project: lanes-demo
+
+services:
+  gateway:
+    port: 3380
+    entry: true           # the browser calls it; every lane gets its own gateway port
+    runtime: java         # lanes attaches the OpenTelemetry agent so the lane header travels on
+  orders:
+    port: 3381
+    runtime: java
+  catalog:
+    port: 3382
+    runtime: java
+
+uis:
+  web:
+    label: Shop
+    path: web
+    port: 3300
+    command: node server.mjs
+    install: false        # no dependencies to install
+    env:
+      PORT: "{{port}}"
+      API_URL: http://localhost:3380
+    laneEnv:
+      LANE_NAME: "{{lane}}"
+
+runtimes:
+  java:
+    heap: { baseline: 96m, lane: 96m }
+    memOverheadMb: 256
+
+dashboard:
+  port: 7171

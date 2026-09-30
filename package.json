@@ -1,0 +1,30 @@
+{
+  "name": "lanes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Run many tasks side by side on one shared Docker Compose stack: each task starts only the services it changed, and requests are routed to them by header.",
+  "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/TotoBarbota/Lanes.git" },
+  "homepage": "https://github.com/TotoBarbota/Lanes#readme",
+  "bugs": "https://github.com/TotoBarbota/Lanes/issues",
+  "bin": {
+    "lanes": "bin/lanes.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "dashboard",
+    "templates",
+    "examples"
+  ],
+  "keywords": ["docker-compose", "microservices", "worktree", "ai-agents", "preview-environments", "opentelemetry", "baggage", "routing"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  }
+}
